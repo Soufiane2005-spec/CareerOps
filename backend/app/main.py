@@ -17,3 +17,9 @@ def health_check():
         "status": "ok",
         "environment": settings.app_env,
     }
+@app.get("/ready")
+def readiness_check():
+    return {
+        "status": "ready",
+        "environment": settings.app_env,
+    }
