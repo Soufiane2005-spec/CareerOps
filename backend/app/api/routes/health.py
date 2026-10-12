@@ -1,5 +1,6 @@
 from fastapi import APIRouter 
 
+from app.core.exceptions import ResourceNotFoundError 
 from app.core.config import get_settings 
 
 router = APIRouter()
@@ -18,3 +19,6 @@ def readiness_check():
         "status" : "ready",
         "environment" : settings.app_env,
     }
+@router.get("/test-error")
+def test_error():
+    raise ResourceNotFoundError("Test resource not found")
