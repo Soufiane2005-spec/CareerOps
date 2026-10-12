@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.router import api_router
 from app.core.config import get_settings
 
 
@@ -10,16 +11,4 @@ app = FastAPI(
     debug=settings.debug,
 )
 
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "ok",
-        "environment": settings.app_env,
-    }
-@app.get("/ready")
-def readiness_check():
-    return {
-        "status": "ready",
-        "environment": settings.app_env,
-    }
+app.include_router(api_router)
