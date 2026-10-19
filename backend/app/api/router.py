@@ -1,8 +1,11 @@
+
 from fastapi import APIRouter
 
 from app.api.routes.health import router as health_router
+from app.api.routes.db_check import router as db_check_router
 
 
 api_router = APIRouter()
 
 api_router.include_router(health_router)
+api_router.include_router(db_check_router)
