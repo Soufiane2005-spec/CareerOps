@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "CareerOps API"
     app_env: str = "local"
     debug: bool = True
-    database_url: str = "postgresql+psycopg://careerops:careerops@localhost:5432/careerops"
+    database_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
