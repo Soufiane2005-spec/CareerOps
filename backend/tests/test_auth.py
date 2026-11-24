@@ -131,3 +131,76 @@ def test_register_password_is_hashed(client):
             "CareerOps123!",
             user.hashed_password,
         ) is True
+
+# TEST 5: Successful login (200)
+def test_login_success(client):
+    test_client, _ = client
+
+    payload = {
+        "email": "login@example.com",
+        "password": "CareerOps123!",
+    }
+
+    register_response = test_client.post(
+        "/auth/register",
+        json=payload,
+    )
+
+    assert register_response.status_code == 201
+
+    response = test_client.post(
+        "/auth/login",
+        json=payload,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["email"] == payload["email"]
+    assert data["id"] == register_response.json()["id"]
+    assert "created_at" in data
+    assert "password" not in data
+    assert "hashed_password" not in data
+
+
+# TEST 6: Incorrect password (401)
+def test_login_wrong_password(client):
+    test_client, _ = client
+
+    register_response = test_client.post(
+        "/auth/register",
+        json={
+            "email": "login@example.com",
+            "password": "CareerOps123!",
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    response = test_client.post(
+        "/auth/login",
+        json={
+            "email": "login@example.com",
+            "password": "WrongPassword123!",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+# TEST 7: Unknown user (401)
+def test_login_unknown_user(client):
+    test_client, _ = client
+
+    response = test_client.post(
+        "/auth/login",
+        json={
+            "email": "unknown@example.com",
+            "password": "CareerOps123!",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
