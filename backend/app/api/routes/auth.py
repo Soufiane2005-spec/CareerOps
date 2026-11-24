@@ -9,6 +9,10 @@ from app.db.database import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.services.user_service import create_user, get_user_by_email
 from app.schemas.user import UserCreate, UserResponse, UserLogin
+from app.core.security import create_access_token
+from app.schemas.user import TokenResponse
+from app.api.dependencies import get_current_user
+from app.models.user import User
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 from app.services.user_service import (
     create_user,
@@ -48,9 +52,10 @@ def register(
 
     return user
 
+
 @router.post(
     "/login",
-    response_model=UserResponse,
+    response_model=TokenResponse,
     responses={
         401: {"description": "Invalid email or password"}
     },
@@ -71,4 +76,21 @@ def login(
             detail="Invalid email or password",
         )
 
-    return user
+    access_token = create_access_token(user.id)
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+    )
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    responses={
+        401: {"description": "Invalid or expired access token"}
+    },
+)
+def read_current_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    return current_user

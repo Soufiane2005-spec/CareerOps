@@ -10,8 +10,7 @@ from app.main import app
 from app.db.base import Base
 from app.db.database import get_db
 from app.models.user import User
-from app.core.security import verify_password
-
+from app.core.security import verify_password, decode_access_token
 
 @pytest.fixture
 def client():
@@ -133,6 +132,7 @@ def test_register_password_is_hashed(client):
         ) is True
 
 # TEST 5: Successful login (200)
+
 def test_login_success(client):
     test_client, _ = client
 
@@ -157,11 +157,15 @@ def test_login_success(client):
 
     data = response.json()
 
-    assert data["email"] == payload["email"]
-    assert data["id"] == register_response.json()["id"]
-    assert "created_at" in data
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+
+    user_id = decode_access_token(data["access_token"])
+
+    assert user_id == register_response.json()["id"]
     assert "password" not in data
     assert "hashed_password" not in data
+
 
 
 # TEST 6: Incorrect password (401)
@@ -204,3 +208,102 @@ def test_login_unknown_user(client):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid email or password"
+
+# TEST 8: Access with a valid token
+def test_read_current_user_success(client):
+    test_client, _ = client
+
+    payload = {
+        "email": "profile@example.com",
+        "password": "CareerOps123!",
+    }
+
+    register_response = test_client.post(
+        "/auth/register",
+        json=payload,
+    )
+
+    assert register_response.status_code == 201
+
+    login_response = test_client.post(
+        "/auth/login",
+        json=payload,
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    response = test_client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["email"] == payload["email"]
+    assert response.json()["id"] == register_response.json()["id"]
+    assert "hashed_password" not in response.json()
+
+
+# TEST 9: Access without a token
+def test_read_current_user_without_token(client):
+    test_client, _ = client
+
+    response = test_client.get("/auth/me")
+
+    assert response.status_code == 401
+
+
+# TEST 10: Access with an invalid token
+def test_read_current_user_invalid_token(client):
+    test_client, _ = client
+
+    response = test_client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer invalid-token"},
+    )
+
+    assert response.status_code == 401
+
+# TEST 11: Access after user deletion
+def test_read_current_user_deleted(client):
+    test_client, engine = client
+
+    payload = {
+        "email": "deleted@example.com",
+        "password": "CareerOps123!",
+    }
+
+    register_response = test_client.post(
+        "/auth/register",
+        json=payload,
+    )
+
+    assert register_response.status_code == 201
+
+    user_id = register_response.json()["id"]
+
+    login_response = test_client.post(
+        "/auth/login",
+        json=payload,
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    with Session(engine) as db:
+        user = db.get(User, user_id)
+        assert user is not None
+        db.delete(user)
+        db.commit()
+
+    response = test_client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Invalid or expired access token"
+    )
